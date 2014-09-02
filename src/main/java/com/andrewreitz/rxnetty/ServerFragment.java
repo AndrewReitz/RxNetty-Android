@@ -2,6 +2,8 @@ package com.andrewreitz.rxnetty;
 
 import android.app.Fragment;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -27,29 +29,12 @@ public final class ServerFragment extends Fragment {
 
   private static final String TAG = ServerFragment.class.getName();
   private static final int PORT = 2025;
+  private static final Handler mainHandler = new Handler(Looper.getMainLooper());
 
   private ServerAdapter adapter;
+  private RxServer<String, String> server;
 
   @InjectView(R.id.server_listview) ListView listView;
-
-  @OnClick(R.id.server_button) void startServer() {
-    RxServer<String, String> server = RxNetty.createTcpServer(PORT, PipelineConfigurators.textOnlyConfigurator(),
-        connection -> {
-          adapter.add("New client connection established.");
-          connection.writeAndFlush("Welcome! \n\n");
-          return connection.getInput().flatMap(msg -> {
-            Log.d(TAG, "onNext: " + msg);
-            msg = msg.trim();
-            if (!msg.isEmpty()) {
-              return connection.writeAndFlush("echo => " + msg + '\n');
-            } else {
-              return Observable.empty();
-            }
-          });
-        });
-    adapter.add("TCP echo server started...");
-    server.start();
-  }
 
   @OnClick(R.id.client_button) void startClient() {
     Observable<ObservableConnection<String, String>> connectionObservable =
@@ -61,6 +46,7 @@ public final class ServerFragment extends Fragment {
 
       // output 10 values at intervals and receive the echo back
       Observable<String> intervalOutput =
+
           Observable.interval(500, TimeUnit.MILLISECONDS)
               .flatMap(aLong -> connection.writeAndFlush(String.valueOf(aLong + 1))
                   .map(aVoid -> ""));
@@ -71,21 +57,41 @@ public final class ServerFragment extends Fragment {
       // wait for the helloMessage then start the output and receive echo input
       return Observable.concat(helloMessage, Observable.merge(intervalOutput, echo));
     })
-        .take(10)
-        .subscribeOn(Schedulers.io())
-        .observeOn(AndroidSchedulers.mainThread())
-        .subscribe(new Observer<Object>() {
-          @Override public void onCompleted() {
-            Log.d(TAG, "COMPLETED!");
-          }
+    .take(10)
+    .subscribeOn(Schedulers.io())
+    .observeOn(AndroidSchedulers.mainThread())
+    .subscribe(new Observer<Object>() {
+      @Override public void onCompleted() {
+        Log.d(TAG, "Client Complete!");
+      }
 
-          @Override public void onError(Throwable throwable) {
-            Log.e(TAG, "onError: " + throwable.getMessage());
-          }
+      @Override public void onError(Throwable throwable) {
+        Log.e(TAG, "onError: " + throwable.getMessage());
+      }
 
-          @Override public void onNext(Object o) {
-            adapter.add(o.toString());
-          }
+      @Override public void onNext(Object o) {
+        final String message = o.toString();
+        Log.d(TAG, "Client onNext: " + message);
+        adapter.add(message);
+      }
+    });
+  }
+
+  @Override public void onCreate(Bundle savedInstanceState) {
+    super.onCreate(savedInstanceState);
+    server = RxNetty.createTcpServer(PORT, PipelineConfigurators.textOnlyConfigurator(),
+        connection -> {
+          mainHandler.post(() -> adapter.add("New client connection established."));
+          connection.writeAndFlush("Welcome! \n\n");
+          return connection.getInput().flatMap(msg -> {
+            Log.d(TAG, "Server onNext: " + msg);
+            msg = msg.trim();
+            if (!msg.isEmpty()) {
+              return connection.writeAndFlush("echo => " + msg + '\n');
+            } else {
+              return Observable.empty();
+            }
+          });
         });
   }
 
@@ -100,5 +106,21 @@ public final class ServerFragment extends Fragment {
     super.onActivityCreated(savedInstanceState);
     adapter = new ServerAdapter(getActivity());
     listView.setAdapter(adapter);
+  }
+
+  @Override public void onStart() {
+    super.onStart();
+    adapter.add("TCP echo server started...");
+    server.start();
+  }
+
+  @Override public void onStop() {
+    super.onStop();
+    adapter.add("TCP echo server shutting down...");
+    try {
+      server.shutdown();
+    } catch (InterruptedException e) {
+      Log.d(TAG, "Error shutting down server: " + e.getMessage());
+    }
   }
 }
