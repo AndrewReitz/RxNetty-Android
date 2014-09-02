@@ -48,7 +48,3 @@ dependencies {
   compile 'com.netflix.rxjava:rxjava-android:0.20.3'
   compile 'com.google.code.gson:gson:2.3'
 }
-
-checkstyle {
-  configFile = new File(rootDir, "checkstyle.xml")
-}
