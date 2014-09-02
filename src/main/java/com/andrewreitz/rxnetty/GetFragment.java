@@ -6,27 +6,53 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ListView;
+
+import com.andrewreitz.rxnetty.model.Child;
+import com.andrewreitz.rxnetty.model.Data_;
+import com.andrewreitz.rxnetty.model.Reddit;
+import com.google.gson.Gson;
 
 import java.nio.charset.Charset;
+import java.util.List;
 
 import butterknife.ButterKnife;
+import butterknife.InjectView;
 import butterknife.OnClick;
 import io.reactivex.netty.RxNetty;
+import rx.Observable;
 import rx.Observer;
+import rx.Subscription;
 import rx.android.schedulers.AndroidSchedulers;
 import rx.schedulers.Schedulers;
+import rx.subscriptions.Subscriptions;
 
-public class GetFragment extends Fragment {
+public final class GetFragment extends Fragment {
 
   private static final String TAG = GetFragment.class.getName();
 
+  private Gson gson = new Gson();
+
+  private RedditAdapter adapter;
+
+  @InjectView(R.id.get_listview) ListView listView;
+
   @OnClick(R.id.get_button) void onClick() {
-    RxNetty.createHttpGet("http://reddit.com/r/gratefuldead")
+    // Must have www, will not follow redirects w/ out being told to
+    RxNetty.createHttpGet("http://www.reddit.com/r/ReactiveProgramming.json")
         .flatMap(response -> response.getContent())
-        .map(data -> "Client => " + data.toString(Charset.defaultCharset()))
+        .map(data -> data.toString(Charset.defaultCharset()))
+        .flatMap(s -> Observable.from(
+            gson.fromJson(s, Reddit.class)
+                .getData()
+                .getChildren())
+        )
+        .map(Child::getData)
+        .map(Data_::getTitle)
+        .toList()
         .subscribeOn(Schedulers.io())
         .observeOn(AndroidSchedulers.mainThread())
-        .subscribe(new Observer<String>() {
+        .subscribe(new Observer<List<String>>() {
           @Override public void onCompleted() {
             Log.d(TAG, "GET onCompleted");
           }
@@ -35,8 +61,9 @@ public class GetFragment extends Fragment {
             Log.e(TAG, "GET onError: " + e.getMessage());
           }
 
-          @Override public void onNext(String s) {
-            Log.d(TAG, "GET onNext: " + s);
+          @Override public void onNext(List<String> titles) {
+            Log.d(TAG, "GET onNext");
+            adapter.replaceWith(titles);
           }
         });
   }
@@ -46,5 +73,11 @@ public class GetFragment extends Fragment {
     View view = inflater.inflate(R.layout.fragement_get, container, false);
     ButterKnife.inject(this, view);
     return view;
+  }
+
+  @Override public void onActivityCreated(Bundle savedInstanceState) {
+    super.onActivityCreated(savedInstanceState);
+    adapter = new RedditAdapter(getActivity());
+    listView.setAdapter(adapter);
   }
 }
