@@ -34,7 +34,7 @@ public final class RedditAdapter extends BindableAdapter<String> {
   }
 
   @Override public View newView(LayoutInflater inflater, int position, ViewGroup container) {
-    return new TextView(getContext());
+    return inflater.inflate(android.R.layout.simple_list_item_1, container, false);
   }
 
   @Override public void bindView(String item, int position, View view) {
