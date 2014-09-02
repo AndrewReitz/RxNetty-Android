@@ -2,5 +2,7 @@
 <resources>
     <string name="app_name">RxNetty Android</string>
     <string name="hello_world">Hello Android!</string>
-    <string name="get">Get!</string>
+    <string name="get">GET</string>
+    <string name="start_server">Start Server</string>
+    <string name="start_client">Start Client</string>
 </resources>

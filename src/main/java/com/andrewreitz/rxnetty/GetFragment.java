@@ -22,10 +22,8 @@ import butterknife.OnClick;
 import io.reactivex.netty.RxNetty;
 import rx.Observable;
 import rx.Observer;
-import rx.Subscription;
 import rx.android.schedulers.AndroidSchedulers;
 import rx.schedulers.Schedulers;
-import rx.subscriptions.Subscriptions;
 
 public final class GetFragment extends Fragment {
 
@@ -70,7 +68,7 @@ public final class GetFragment extends Fragment {
 
   @Override public View onCreateView(
       LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
-    View view = inflater.inflate(R.layout.fragement_get, container, false);
+    View view = inflater.inflate(R.layout.fragment_get, container, false);
     ButterKnife.inject(this, view);
     return view;
   }
